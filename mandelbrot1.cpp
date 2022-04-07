@@ -2,8 +2,11 @@
 
 const int nMax  = 256;
 const int r2Max = 100;
-const float dx  = 4.f / 800.f;
+const float dx  = 2.f / 800.f;
 const float dy  = 2.f / 600.f;
+
+const float ROI_X = -1.325f,
+            ROI_Y = 0;
 
 int main() {
     sf::RenderWindow window(sf::VideoMode(800, 600), "Mandelbrot");
@@ -11,17 +14,47 @@ int main() {
     sf::Clock clock;
     float lastTime = 0;
 
+    float xC = 0.f, yC = 0.f, scale = 1.f;
+
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
                 window.close();
-        }
-        
-        int ix = 0, iy = 0;
+            
+            if (event.type == sf::Event::KeyPressed) {
+                switch(event.key.code) {
+                    case sf::Keyboard::Left:
+                        xC -= dx * ((sf::Keyboard::LShift) ? 100.f : 10.f);
+                        break;
+                    
+                    case sf::Keyboard::Right:
+                        xC += dx * ((sf::Keyboard::LShift) ? 100.f : 10.f);
+                        break; 
 
+                    case sf::Keyboard::Down:
+                        yC += dx * ((sf::Keyboard::LShift) ? 100.f : 10.f);
+                        break;
+
+                    case sf::Keyboard::Up:
+                        yC -= dx * ((sf::Keyboard::LShift) ? 100.f : 10.f);
+                        break;
+
+                    case sf::Keyboard::A:
+                        scale += dx * ((sf::Keyboard::LShift) ? 100.f : 10.f);
+                        break;
+
+                    case sf::Keyboard::Z:
+                        scale -= dx * ((sf::Keyboard::LShift) ? 100.f : 10.f);
+                }
+            }
+        }
+
+        int ix = 0, iy = 0;
+        
         for (; iy < 600; iy++) {
-            float x0 = -400.f * dx, y0 = (iy - 300.f) * dy;
+            float   x0 = (-400.f * dx + ROI_X + xC) * scale, 
+                    y0 = ((iy - 300.f) * dy + ROI_Y + yC) * scale;
 
             for (ix = 0; ix < 800; ix++, x0 += dx) {
                 float X = x0, Y = y0;
