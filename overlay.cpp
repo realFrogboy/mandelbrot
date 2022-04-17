@@ -3,8 +3,11 @@
 #include <immintrin.h>
 #include <assert.h>
 
-const int      len = 200, wig = 150;
-//const int lenfront = 200, wigFront = 150;
+const int      len = 800,      wig = 600;
+const int lenFront = 200, wigFront = 150;
+
+const int startX = 320, startY = 320;
+
 const char I = 255u, Z = 0x80u;
            
 const __m128i   _0 =                    _mm_set_epi8 (0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0);
@@ -12,28 +15,28 @@ const __m128i _255 = _mm_cvtepu8_epi16 (_mm_set_epi8 (I,I,I,I, I,I,I,I, I,I,I,I,
 
 const char *frontFile = "Racket.bmp";
 const char *backFile  = "Table.bmp" ;
-const char *result    = "Result.bmp";
+const char *result    = "Result.png";
 
-int** loadIm(const char *file);
+int** loadIm(int wig, int len, const char *file);
 void saveIm(const char *file, int wig, int len, int **arr);
 void freeDArr(int wig, int len, int **arr);
 
 
 int main() {
-    int **front = loadIm(frontFile);
-    int  **back = loadIm( backFile);
-    int   **res = loadIm(   result);
+    int **front = loadIm(wigFront, lenFront, frontFile);
+    int  **back = loadIm(     wig,      len,  backFile);
+    int   **res = loadIm(     wig,      len,  backFile);
 
     //sf::RenderWindow window(sf::VideoMode(len, wig), "Overlay");
 
-    for (int y = 0; y < wig; y++) 
-        for (int x = 0; x < len; x += 4) {
+    for (int y = startY; y < wigFront + startY; y++) 
+        for (int x = startX; x < lenFront + startX; x += 4) {
             //-----------------------------------------------------------------------
             //       15 14 13 12   11 10  9  8    7  6  5  4    3  2  1  0
             // fr = [r3 g3 b3 a3 | r2 g2 b2 a2 | r1 g1 b1 a1 | r0 g0 b0 a0]
             //-----------------------------------------------------------------------
 
-            __m128i fr = _mm_load_si128 ((__m128i*) &front[y][x]);                   // fr = front[y][x]
+            __m128i fr = _mm_load_si128 ((__m128i*) &front[y - startY][x - startX]);    // fr = front[y][x]
             __m128i bk = _mm_load_si128 ((__m128i*) &back [y][x]);
 
             //-----------------------------------------------------------------------
@@ -47,7 +50,7 @@ int main() {
             // FR = [-- -- -- -- | -- -- -- -- | a3 r3 g3 b3 | a2 r2 g2 b2]
             //-----------------------------------------------------------------------
             
-            __m128i FR = (__m128i) _mm_movehl_ps ((__m128) _0, (__m128) fr);       // FR = (fr >> 8*8)
+            __m128i FR = (__m128i) _mm_movehl_ps ((__m128) _0, (__m128) fr);            // FR = (fr >> 8*8)
             __m128i BK = (__m128i) _mm_movehl_ps ((__m128) _0, (__m128) bk);
 
             //-----------------------------------------------------------------------
@@ -76,15 +79,15 @@ int main() {
 
             static const __m128i moveA = _mm_set_epi8 (Z, 14, Z, 14, Z, 14, Z, 14,
                                                        Z,  6, Z,  6, Z,  6, Z,  6);
-            __m128i a = _mm_shuffle_epi8 (fr, moveA);                                // a [for r0/b0/b0...] = a0...
+            __m128i a = _mm_shuffle_epi8 (fr, moveA);                                   // a [for r0/b0/b0...] = a0...
             __m128i A = _mm_shuffle_epi8 (FR, moveA);
             
             //-----------------------------------------------------------------------
-
-            fr = _mm_mullo_epi16 (fr, a);                                           // fr *= a
+            
+            fr = _mm_mullo_epi16 (fr, a);                                               // fr *= a
             FR = _mm_mullo_epi16 (FR, A);
 
-            bk = _mm_mullo_epi16 (bk, _mm_sub_epi16 (_255, a));                                  // bk *= (255-a)
+            bk = _mm_mullo_epi16 (bk, _mm_sub_epi16 (_255, a));                         // bk *= (255-a)
             BK = _mm_mullo_epi16 (BK, _mm_sub_epi16 (_255, A));
 
             __m128i sum = _mm_add_epi16 (fr, bk);                                       // sum = fr*a + bk*(255-a)
@@ -115,19 +118,19 @@ int main() {
             // color = [a3 r3 g3 b3 | a2 r2 g2 b2 | a1 r1 g1 b1 | a0 r0 g0 b0]
             //-----------------------------------------------------------------------
 
-            __m128i color = (__m128i) _mm_movelh_ps ((__m128) sum, (__m128) SUM);  // color = (sumHi << 8*8) | sum
+            __m128i color = (__m128i) _mm_movelh_ps ((__m128) sum, (__m128) SUM);       // color = (sumHi << 8*8) | sum
 
             _mm_store_si128 ((__m128i*) &res[y][x], color);
         }
     saveIm(result, wig, len, res);
 
-    freeDArr(wig, len, front);
+    freeDArr(wigFront, lenFront, front);
     freeDArr(wig, len, back);
     freeDArr(wig, len, res);
 }
 
 
-int** loadIm(const char *file) {
+int** loadIm(int wig, int len, const char *file) {
     assert(file);
 
     sf::Image image;
